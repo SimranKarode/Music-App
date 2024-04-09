@@ -1,0 +1,16 @@
+PODS:
+  - SJSegmentedScrollView (1.5.0)
+
+DEPENDENCIES:
+  - SJSegmentedScrollView (= 1.5.0)
+
+SPEC REPOS:
+  trunk:
+    - SJSegmentedScrollView
+
+SPEC CHECKSUMS:
+  SJSegmentedScrollView: 67ca97389a9c3a409d3b54c88781f031f5091c61
+
+PODFILE CHECKSUM: 276f8ce06a39a441ee872883638f4f34fef95d20
+
+COCOAPODS: 1.15.2

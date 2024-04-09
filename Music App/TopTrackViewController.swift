@@ -1,28 +1,27 @@
 //
-//  ViewController.swift
+//  TopTrackViewController.swift
 //  Music App
 //
-//  Created by Simran on 03/04/24.
+//  Created by Simran on 05/04/24.
 //
 
 import UIKit
 
-class ViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
+class TopTrackViewController: UIViewController, UITableViewDelegate, UITableViewDataSource {
     
-    @IBOutlet weak var MusicList: UITableView!
-     var data = NetworkRequest.shared
+    @IBOutlet weak var tableView: UITableView!
+    
     var songs : [Datum] = []
-    var dataCount = 0
+    var data = NetworkRequest.shared
+    
+    
     override func viewDidLoad() {
         super.viewDidLoad()
-        MusicList.allowsSelection = true
-        MusicList.delegate = self
-        MusicList.dataSource = self
+
+        // Do any additional setup after loading the view.
         fetchData()
-        DispatchQueue.main.async {
-            self.MusicList.reloadData()
-        }
     }
+    
     func fetchData() {
             guard let url = URL(string: "https://cms.samespace.com/items/songs") else {
                 print("Invalid URL")
@@ -39,11 +38,11 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
                     let decoder = JSONDecoder()
                     let songs = try decoder.decode(MusicModule.self, from: data)
                     print("Fetched: ", songs.data.count)
-                    self?.songs = songs.data
+                    self?.songs = songs.data.filter { $0.topTrack }
                     // Reload corresponding table view cell on the main thread
                     DispatchQueue.main.async {
                         
-                        self?.MusicList.reloadData()
+                        self?.tableView.reloadData()
                     }
                 } catch {
                     print("Error decoding JSON: \(error.localizedDescription)")
@@ -51,36 +50,13 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             }.resume()
         }
     
-    func fetchImage(from url: String, completion: @escaping (UIImage?) -> Void) {
-        guard let url = URL(string: url) else {
-                    print("Invalid URL")
-                    return
-        }
-        URLSession.shared.dataTask(with: url) { (data, response, error) in
-            guard let data = data, error == nil else {
-                print("Failed to fetch image:", error?.localizedDescription ?? "Unknown error")
-                completion(nil)
-                return
-            }
-            guard let image = UIImage(data: data) else {
-                print("Failed to create image from data")
-                completion(nil)
-                return
-            }
-            completion(image)
-        }.resume()
-    }
-    
-    func numberOfSections(in tableView: UITableView) -> Int {
-        return 1
-    }
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        print("Fetched2: ", songs.count)
+        print("Total top track count:", songs.count)
         return songs.count
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = MusicList.dequeueReusableCell(withIdentifier:"MusicListViewCell" , for: indexPath) as! MusicListViewCell
+        let cell = tableView.dequeueReusableCell(withIdentifier:"MusicListViewCell" , for: indexPath) as! MusicListViewCell
         let datass = songs[indexPath.row]
         cell.nameLabel.text = datass.name
         cell.artistNameLabel.text = datass.artist
@@ -102,27 +78,21 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             }
         return cell
     }
-    
     override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-            if segue.identifier == "showDetail",
+            if segue.identifier == "showDetails",
                let indexPath = sender as? IndexPath,
                let detailViewController = segue.destination as? MusicDetailViewController {
                 // Pass data to the detail view controller
                 print("Your value", songs[indexPath.row])
                 detailViewController.selectedMusicIndex = indexPath.row
                 detailViewController.musicItems = songs
-                detailViewController.musicURL = songs[indexPath.row].url
               //  detailViewController.list = songs[indexPath.row]
             }
         }
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         print("This is select index \(indexPath.row)")
-        performSegue(withIdentifier: "showDetail", sender: indexPath)
+        performSegue(withIdentifier: "showDetails", sender: indexPath)
 //        let detailViewController = storyboard?.instantiateViewController(withIdentifier: "MusicDetailViewController") as! MusicDetailViewController
     }
-  
-    
-    
-    
-}
 
+}
