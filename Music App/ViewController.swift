@@ -7,7 +7,7 @@
 
 import UIKit
 
-class ViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
+class ViewController: UIViewController {
     
     @IBOutlet weak var MusicList: UITableView!
      var data = NetworkRequest.shared
@@ -23,6 +23,30 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             self.MusicList.reloadData()
         }
     }
+    
+    override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
+            if segue.identifier == "showDetail",
+               let indexPath = sender as? IndexPath,
+               let detailViewController = segue.destination as? MusicDetailViewController {
+                // Pass data to the detail view controller
+                print("Your value", songs[indexPath.row])
+                detailViewController.selectedMusicIndex = indexPath.row
+                detailViewController.musicItems = songs
+                detailViewController.musicURL = songs[indexPath.row].url
+              //  detailViewController.list = songs[indexPath.row]
+            }
+        }
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        print("This is select index \(indexPath.row)")
+        performSegue(withIdentifier: "showDetail", sender: indexPath)
+    }
+  
+    
+    
+    
+}
+
+extension ViewController {
     func fetchData() {
             guard let url = URL(string: "https://cms.samespace.com/items/songs") else {
                 print("Invalid URL")
@@ -50,26 +74,11 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
                 }
             }.resume()
         }
-    
-    func fetchImage(from url: String, completion: @escaping (UIImage?) -> Void) {
-        guard let url = URL(string: url) else {
-                    print("Invalid URL")
-                    return
-        }
-        URLSession.shared.dataTask(with: url) { (data, response, error) in
-            guard let data = data, error == nil else {
-                print("Failed to fetch image:", error?.localizedDescription ?? "Unknown error")
-                completion(nil)
-                return
-            }
-            guard let image = UIImage(data: data) else {
-                print("Failed to create image from data")
-                completion(nil)
-                return
-            }
-            completion(image)
-        }.resume()
-    }
+}
+
+
+extension ViewController: UITableViewDataSource, UITableViewDelegate{
+    // Display Music List Using Table View Method
     
     func numberOfSections(in tableView: UITableView) -> Int {
         return 1
@@ -102,27 +111,4 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             }
         return cell
     }
-    
-    override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-            if segue.identifier == "showDetail",
-               let indexPath = sender as? IndexPath,
-               let detailViewController = segue.destination as? MusicDetailViewController {
-                // Pass data to the detail view controller
-                print("Your value", songs[indexPath.row])
-                detailViewController.selectedMusicIndex = indexPath.row
-                detailViewController.musicItems = songs
-                detailViewController.musicURL = songs[indexPath.row].url
-              //  detailViewController.list = songs[indexPath.row]
-            }
-        }
-    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        print("This is select index \(indexPath.row)")
-        performSegue(withIdentifier: "showDetail", sender: indexPath)
-//        let detailViewController = storyboard?.instantiateViewController(withIdentifier: "MusicDetailViewController") as! MusicDetailViewController
-    }
-  
-    
-    
-    
 }
-

@@ -5,10 +5,15 @@
 //  Created by Simran on 07/04/24.
 //
 
+/* In this music list some audio urls are not working because of space issue.
+ For Example = "https://pub-172b4845a7e24a16956308706aaf24c2.r2.dev/ first-touch-160603.mp3"
+ 
+ */
+
 import UIKit
 import AVFoundation
 
-class MusicDetailViewController: UIViewController, UICollectionViewDataSource {
+class MusicDetailViewController: UIViewController {
 
     @IBOutlet weak var collectionView: UICollectionView!
     @IBOutlet weak var MusicName: UILabel!
@@ -27,9 +32,10 @@ class MusicDetailViewController: UIViewController, UICollectionViewDataSource {
     var musicItems: [Datum] = []
     var timer: Timer?
     var timeObserver: Any?
-    //let musicPlayer = MusicPlayer()
     var data = NetworkRequest.shared
     var musicURL = ""
+    
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view.
@@ -37,15 +43,15 @@ class MusicDetailViewController: UIViewController, UICollectionViewDataSource {
         collectionView.delegate = self
         updateCurrentMusicLabel()
         updateCoverImageInCollectionView(currentIndex: selectedMusicIndex)
-       // fetchSongs()
         
         // Scroll to the selected music item
         let indexPath = IndexPath(item: selectedMusicIndex, section: 0)
         collectionView.scrollToItem(at: indexPath, at: .centeredHorizontally, animated: false)
         
         let urlString = musicItems[selectedMusicIndex].url
-           print("URL...", musicURL)
-                guard let url = URL(string: urlString) else {
+        let trimmedString = urlString.trimmingCharacters(in: .whitespaces)
+           print("URL...", trimmedString)
+                guard let url = URL(string: trimmedString) else {
                     print("Invalid URL")
                     return
                 }
@@ -54,33 +60,68 @@ class MusicDetailViewController: UIViewController, UICollectionViewDataSource {
         downloadAndPlayAudio(from: url)
     }
     
-    // MARK: - Audio Playback
-        func downloadAndPlayAudio(from url: URL) {
-            let downloadTask = URLSession.shared.downloadTask(with: url) { [weak self] (location, response, error) in
-                guard let self = self else { return }
-                if let location = location {
-                    do {
-                        // Move the downloaded file to a permanent location
-                        let documentsDirectoryURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-                        let destinationURL = documentsDirectoryURL.appendingPathComponent(url.lastPathComponent)
-                        try FileManager.default.moveItem(at: location, to: destinationURL)
-                        
-                        // Play the audio from the downloaded file
-                        DispatchQueue.main.async {
-                            self.playAudio(at: destinationURL)
-                        }
-                    } catch {
-                        print("Error moving file: \(error)")
-                    }
-                } else {
-                    print("Error downloading audio: \(error?.localizedDescription ?? "Unknown error")")
-                }
-            }
-            
-            downloadTask.resume()
+    // Update the current music label with the selected music name
+        func updateCurrentMusicLabel() {
+            MusicName.text = musicItems[selectedMusicIndex].name
+            ArtistName.text = musicItems[selectedMusicIndex].artist
+            musicURL = musicItems[selectedMusicIndex].url
         }
 
     
+    func updateCoverImageInCollectionView(currentIndex: Int) {
+        let indexPath = IndexPath(item: currentIndex, section: 0)
+        print("IndexPath:", indexPath)
+
+        guard currentIndex >= 0 && currentIndex < musicItems.count else {
+            print("Invalid index")
+            return
+        }
+
+        let song = musicItems[currentIndex]
+        let imageURL = "https://cms.samespace.com/assets/\(song.cover)"
+        print("Image URL:", imageURL)
+    }
+
+
+
+
+    
+    @IBAction func playMusic(_ sender: Any) {
+       // musicItems[selectedMusicIndex] = musicItems[selectedMusicIndex + 1]
+        let nextSongURL = musicItems[selectedMusicIndex].url
+        print("Forward Music", musicItems[selectedMusicIndex].name)
+        guard let url = URL(string: nextSongURL) else {
+            print("Invalid URL")
+            return
+        }
+        
+        if let player = player {
+          if player.rate == 0 {
+              player.play()
+              playAudio(at: url)
+              playPauseBtn.setImage(UIImage(named: "pauseBtn"), for: .normal)
+           } else {
+               player.pause()
+               playPauseBtn.setImage(UIImage(named: "playButton"), for: .normal)
+      }
+     }
+    }
+    
+    @IBAction func forwardMusic(_ sender: Any) {
+        print("Next Music will Play")
+        forwardMusic()
+        updateCurrentMusicLabel()
+    }
+    
+    @IBAction func backwordMusic(_ sender: Any) {
+        print("Previous Music will Play")
+       backwardMusic()
+        updateCurrentMusicLabel()
+    }
+    
+}
+
+extension MusicDetailViewController: UICollectionViewDataSource, UICollectionViewDelegate {
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
         return musicItems.count
     }
@@ -97,8 +138,15 @@ class MusicDetailViewController: UIViewController, UICollectionViewDataSource {
          
         return cell
     }
+    func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        selectedMusicIndex = indexPath.item
+    }
+}
+
+extension MusicDetailViewController {
+    // MARK: - Progress View Methods
     
-    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+     func scrollViewDidScroll(_ scrollView: UIScrollView) {
             let visibleIndexPaths = collectionView.indexPathsForVisibleItems
             if let firstIndexPath = visibleIndexPaths.first {
                 selectedMusicIndex = firstIndexPath.item
@@ -106,27 +154,64 @@ class MusicDetailViewController: UIViewController, UICollectionViewDataSource {
             }
         }
     
-    // Update the current music label with the selected music name
-        func updateCurrentMusicLabel() {
-            MusicName.text = musicItems[selectedMusicIndex].name
-            ArtistName.text = musicItems[selectedMusicIndex].artist
-            musicURL = musicItems[selectedMusicIndex].url
-        }
+      func startUpdatingProgressView() {
+          timer = Timer.scheduledTimer(timeInterval: 0.1, target: self, selector: #selector(updateProgressView), userInfo: nil, repeats: true)
+      }
+      
+      func stopUpdatingProgressView() {
+          timer?.invalidate()
+          timer = nil
+      }
+      
+      @objc func updateProgressView() {
+          if let player = audioPlayer {
+              let currentTime = player.currentTime
+              let duration = player.duration
+              let progress = Float(currentTime / duration)
+              progressView.progress = progress
+              
+              // Update labels
+              currentTimeLabel.text = formattedTime(timeInterval: currentTime)
+              durationLabel.text = formattedTime(timeInterval: duration)
+          }
+      }
     
-    func playSong(at index: Int) {
-            guard index >= 0 && index < musicItems.count else { return }
-            let songURL = musicItems[index].url
-        if let urlString = songURL.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-           let url = URL(string: urlString) {
-            // Use the URL here
-          //  musicPlayer.playMusic(url:url)
-            print("Your URL", url)
-        } else {
-            // Handle invalid URL string
-            print("Invalid URL string")
+    func formattedTime(timeInterval: TimeInterval) -> String {
+            let minutes = Int(timeInterval) / 60
+            let seconds = Int(timeInterval) % 60
+            return String(format: "%02d:%02d", minutes, seconds)
         }
-    }
+}
 
+extension MusicDetailViewController {
+    // MARK: - Audio Playback
+   func downloadAndPlayAudio(from url: URL) {
+       let downloadTask = URLSession.shared.downloadTask(with: url) { [weak self] (location, response, error) in
+           guard let self = self else { return }
+           if let location = location {
+               do {
+                   // Move the downloaded file to a permanent location
+                   let documentsDirectoryURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+                   let destinationURL = documentsDirectoryURL.appendingPathComponent(url.lastPathComponent)
+                   try FileManager.default.removeItem(at:location)
+                   try FileManager.default.copyItem(at: location, to: destinationURL)
+                   
+                   // Play the audio from the downloaded file
+                   DispatchQueue.main.async {
+                       self.playAudio(at: destinationURL)
+                   }
+               } catch {
+                   print("Error moving file: \(error)")
+               }
+           } else {
+               print("Error downloading audio: \(error?.localizedDescription ?? "Unknown error")")
+           }
+       }
+       
+       downloadTask.resume()
+   }
+
+    // MARK: - Music Player Methods
     
     func playAudio(at url: URL) {
             let playerItem = AVPlayerItem(url: url)
@@ -173,20 +258,7 @@ class MusicDetailViewController: UIViewController, UICollectionViewDataSource {
                     stopUpdatingProgressView()
         }
     
-    // MARK: - Music Player Methods
-        func playMusics(at index: Int) {
-            guard index >= 0 && index < songURLs.count else { return }
-            guard let url = URL(string: songURLs[index]) else { return }
-            do {
-                audioPlayer = try AVAudioPlayer(contentsOf: url)
-                audioPlayer?.prepareToPlay()
-                audioPlayer?.play()
-                // Start updating progress view
-                startUpdatingProgressView()
-            } catch {
-                print("Error playing audio: \(error.localizedDescription)")
-            }
-        }
+    
     
        func pauseMusic() {
             audioPlayer?.pause()
@@ -217,6 +289,7 @@ class MusicDetailViewController: UIViewController, UICollectionViewDataSource {
                         return
                     }
                     playAudio(at: url)
+                    
                     // Update the cover image in the collection view
                     updateCoverImageInCollectionView(currentIndex: selectedMusicIndex)
                 }
@@ -226,20 +299,25 @@ class MusicDetailViewController: UIViewController, UICollectionViewDataSource {
         func backwardMusic() {
             
             if selectedMusicIndex == musicItems.count - 1 {
+                
                     // If current index is the last index, reset to 0
+                
                     selectedMusicIndex = 0
                     let nextSongURL = musicItems[selectedMusicIndex].url
                      print("Forward Music", musicItems[selectedMusicIndex].name)
                     guard let url = URL(string: nextSongURL) else {
                     print("Invalid URL")
                     return
+                    
                 }
                 playAudio(at: url)
                 } else {
+                    
                     // Increment the index
+                    
                     selectedMusicIndex = selectedMusicIndex - 1
                     let nextSongURL = musicItems[selectedMusicIndex].url
-                    print("Forward Music", musicItems[selectedMusicIndex].name)
+                    print("backward Music", musicItems[selectedMusicIndex].name, selectedMusicIndex)
                     guard let url = URL(string: nextSongURL) else {
                         print("Invalid URL")
                         return
@@ -248,118 +326,4 @@ class MusicDetailViewController: UIViewController, UICollectionViewDataSource {
                 }
         }
     
-    func updateCoverImageInCollectionView(currentIndex: Int) {
-        let indexPath = IndexPath(item: currentIndex, section: 0)
-        print("IndexPath:", indexPath)
-
-        guard currentIndex >= 0 && currentIndex < musicItems.count else {
-            print("Invalid index")
-            return
-        }
-
-        let song = musicItems[currentIndex]
-        let imageURL = "https://cms.samespace.com/assets/\(song.cover)"
-        print("Image URL:", imageURL)
-
-//        data.fetchImage(from: imageURL) { [weak self] (image) in
-//            guard let self = self else { return }
-//            DispatchQueue.main.async {
-//                // Check if the cell is still visible and the index path is valid
-//                if let visibleIndexPaths = self.collectionView.indexPathsForVisibleItems,
-//                   visibleIndexPaths.contains(indexPath) {
-//                    // Update cell directly if it's still visible
-//                    if let cell = self.collectionView.cellForItem(at: indexPath) as? SongsDetailsCollectionCell {
-//                        cell.imageView.image = image
-//                    }
-//                }
-//                else {
-//                    // If the cell is not visible, create a new song instance with updated image
-//                    var updatedMusicItems = self.musicItems
-//                    var updatedSong = song // Assuming song is a struct
-////                    updatedSong.image = image
-//                    updatedMusicItems[currentIndex] = updatedSong
-//                    self.musicItems = updatedMusicItems
-//                    self.collectionView.reloadData()
-//                }
-//            }
-//        }
-    }
-
-
-
-
-    
-    @IBAction func playMusic(_ sender: Any) {
-       // musicItems[selectedMusicIndex] = musicItems[selectedMusicIndex + 1]
-        let nextSongURL = musicItems[selectedMusicIndex].url
-        print("Forward Music", musicItems[selectedMusicIndex].name)
-        guard let url = URL(string: nextSongURL) else {
-            print("Invalid URL")
-            return
-        }
-        playAudio(at: url)
-        if let player = player {
-          if player.rate == 0 {
-              player.play()
-              playPauseBtn.setImage(UIImage(named: "pauseBtn"), for: .normal)
-           } else {
-               player.pause()
-               playPauseBtn.setImage(UIImage(named: "playButton"), for: .normal)
-      }
-     }
-//        player?.play()
-        //playPauseBtn.setImage(UIImage(named: "pauseBtn"), for: .normal)
-    }
-    
-    @IBAction func forwardMusic(_ sender: Any) {
-        print("Next Music will Play")
-        forwardMusic()
-        updateCurrentMusicLabel()
-    }
-    
-    @IBAction func backwordMusic(_ sender: Any) {
-        print("Previous Music will Play")
-       backwardMusic()
-        updateCurrentMusicLabel()
-    }
-    
-}
-
-extension MusicDetailViewController: UICollectionViewDelegate {
-    func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        selectedMusicIndex = indexPath.item
-        playSong(at: selectedMusicIndex)
-        playMusics(at: selectedMusicIndex)
-    }
-}
-
-extension MusicDetailViewController {
-    // MARK: - Progress View Methods
-      func startUpdatingProgressView() {
-          timer = Timer.scheduledTimer(timeInterval: 0.1, target: self, selector: #selector(updateProgressView), userInfo: nil, repeats: true)
-      }
-      
-      func stopUpdatingProgressView() {
-          timer?.invalidate()
-          timer = nil
-      }
-      
-      @objc func updateProgressView() {
-          if let player = audioPlayer {
-              let currentTime = player.currentTime
-              let duration = player.duration
-              let progress = Float(currentTime / duration)
-              progressView.progress = progress
-              
-              // Update labels
-              currentTimeLabel.text = formattedTime(timeInterval: currentTime)
-              durationLabel.text = formattedTime(timeInterval: duration)
-          }
-      }
-    
-    func formattedTime(timeInterval: TimeInterval) -> String {
-            let minutes = Int(timeInterval) / 60
-            let seconds = Int(timeInterval) % 60
-            return String(format: "%02d:%02d", minutes, seconds)
-        }
 }

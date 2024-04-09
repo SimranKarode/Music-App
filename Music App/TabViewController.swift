@@ -31,18 +31,19 @@ class TabViewController: UIViewController {
         // Create view controllers for each segment
  
         // Load child view controllers
-                firstViewController = storyboard?.instantiateViewController(withIdentifier: "ViewController") as? ViewController
-                secondViewController = storyboard?.instantiateViewController(withIdentifier: "TopTrackViewController") as? TopTrackViewController
+         firstViewController = storyboard?.instantiateViewController(withIdentifier: "ViewController") as? ViewController
+         secondViewController = storyboard?.instantiateViewController(withIdentifier: "TopTrackViewController") as? TopTrackViewController
         
         // Function For Title Font
         setFontForTitle()
         
         
         // Add first view controller as default
-                addChild(firstViewController)
-                ViewForDisplay.addSubview(firstViewController.view)
-                firstViewController.didMove(toParent: self)
+            addChild(firstViewController)
+            ViewForDisplay.addSubview(firstViewController.view)
+            firstViewController.didMove(toParent: self)
     }
+    
     
     @IBAction func SegmentActionBtn(_ sender: UISegmentedControl) {
         switch sender.selectedSegmentIndex {
@@ -52,7 +53,7 @@ class TabViewController: UIViewController {
                     switchToViewController(viewController: secondViewController)
                 default:
                     break
-                }
+        }
     }
     
    
